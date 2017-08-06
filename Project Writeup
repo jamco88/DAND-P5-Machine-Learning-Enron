@@ -1,0 +1,272 @@
+Project Writeup
+
+
+This document is designed to be a full overview of the project but there are also notes included in the IPython Notebook.
+
+The Outputs notebook contains multiple parameter setups / results pairings from when I tried SVC / DTree / Random Forest Tuning.
+
+1.
+The purpose of this investigation is to use the exiting Enron Financial Data to build a classifier that can predict if an employee is a Person of Interest. The story of Enron needs no introduction from me and is a famous example of corporate malfeasance. Machine learning can help tease out the relationships between this multifaceted data and also help predict whether an individual might be worth considering as a POI based on their information.
+
+*KEY CHARACTERISTICS OF DATASET:
+('The number of features is:', '21')
+The total number of PoI's in the initial dataset is 18 out of 146:
+('The total number of observations is:', '3066')
+Number of NaN's for each feature:
+bonus                         64
+deferral_payments            107
+deferred_income               97
+director_fees                129
+email_address                  0
+exercised_stock_options       44
+expenses                     51
+from_messages                 60
+from_poi_to_this_person       60
+from_this_person_to_poi       60
+loan_advances                142
+
+long_term_incentive           80
+other                         53
+poi                           0
+restricted_stock              36
+restricted_stock_deferred    128
+salary                        51
+shared_receipt_with_poi      60
+to_messages                  60
+total_payments                21
+total_stock_value            20
+
+OUTLIERS:
+
+Three "employee" entries were identified as bad data or outliers and removed. These were the "TOTAL"(self explanatory, artifact of reading in the whole pdf) , "LOCKHART EUGENE E" (which had no data) and "THE TRAVEL AGENCY IN THE PARK" (unclear what this means) entries.
+I decided not to impose a cutoff for employees with lots of NaN's on the basis that it is a small dataset and a conservative approach is therefore required. Given the purpose of the investigation it would also not make sense to exclude data just because they were outliers.
+
+2.
+New Feature Creation (line 82 of poi_id)
+
+NAMES OF NEW FEATURES:
+
+Fromfract - divide from poi to this person by from_messages
+Tofract - divide to poi from this person by to_messages
+SaltoPay - divide salary by pay
+ESVtoTSV - divide exercised stock options by total stock value
+
+All new features were ratios obtained by dividing one feature by another.
+
+
+I added 4 new features to the dictionary. 2 of these were covered in the course  FromFract and ToFract, meaning the proportion of reeived and outbound emails that were from and to POIs respectively. 
+
+I thought it worth extending the concept of looking at Ratios of certain features in the hope that a new pattern might emerge that wasn't immediately obvious in the existing features, given that these are just straight amounts.
+
+My intuition led me to trying out the ratio of Salary to Total Payments, on the basis that 
+perhaps the PoIs tended to be remunerated in more esoteric and complex ways (in the UK at least salary tends to be a relatively tax inefficient method of remuneration).
+
+I also tried out the ratio of exercised stock options to Total Stock Value - stories abound of enron executives prudently cashing in prior to the bubble bursting.
+
+The last feature I added was a speculative one. I tried the ratio of restricted stock to total stock value, perhaps thinking that this might be a type of stock that gets issued to people the company is extra keen to retain/keep on side.
+
+FEATURES USED
+
+The default featurelist has had email addresses / restricted stock deferred and loan advances removed. Email addresses can't help our analysis and the other two had many missing values. 
+
+default_features_list = ['poi','salary', 'bonus', 'expenses', "total_payments", "exercised_stock_options","restricted_stock", "long_term_incentive", "deferral_payments", "deferred_income", "director_fees","other", "shared_receipt_with_poi", "total_payments"]
+
+With new features included:
+
+features_list = ['poi','salary', 'bonus', 'expenses', "total_payments", "exercised_stock_options",
+"restricted_stock", "long_term_incentive", "deferral_payments", "deferred_income", "director_fees",
+"other", "shared_receipt_with_poi", "total_payments", "total_stock_value", "Fromfract", "Tofract",
+"SaltoPay", "ESVtoTSV", "RStoTSV"]
+
+Feature Exploration 
+
+Resubmission 28/07/2017
+
+FEATURE IMPoRTANCES AND SelectKBest:
+
+
+The inclusion of too many features can slow down the parameter tuning process later on. By testing out the features on SelectKBest we can examine our features and remove those that are not relevant. The score shown here corresponds to how powerful the feature is by itself at predicting the correct outcome. These scores are relative. To ensure accuracy I have used a 100 fold StratifiedShuffleSplit so that the scores are averaged across each fold.
+
+
+All features for Default Featurelist
+0 feature: salary (0.175544188366)
+1 feature: bonus (0.14936279388)
+2 feature: expenses (0.123177433902)
+3 feature: total_payments (0.122743131649)
+4 feature: exercised_stock_options (0.0879840145662)
+5 feature: restricted_stock (0.0724505270535)
+6 feature: long_term_incentive (0.0599602972808)
+7 feature: deferral_payments (0.0440039743717)
+8 feature: deferred_income (0.0432044919262)
+9 feature: director_fees (0.0411053309637)
+10 feature: other (0.0393209723681)
+11 feature: shared_receipt_with_poi (0.0246160536685)
+12 feature: total_payments (0.0165267900047)
+13 feature: total_stock_value (0.0)
+
+
+In general we want to minimise the number of features we use whilst preserving the ones that have the most predictive power. Inclusion of too many features can lead to overfitting. I decided to retain everything that is better than 50% of the top feature -  this retain the top 5 features in the next stage, by setting the SKB K_Best parameter to 5.
+
+
+All features for Updated Featurelist
+0 feature: salary (0.15157943172)
+1 feature: bonus (0.132620172679)
+2 feature: expenses (0.107681830387)
+3 feature: total_payments (0.086944516033)
+4 feature: exercised_stock_options (0.0850770882743)
+5 feature: restricted_stock (0.0768341892247)
+6 feature: long_term_incentive (0.0578261679248)
+7 feature: deferral_payments (0.0528884929341)
+8 feature: deferred_income (0.0491795048977)
+9 feature: director_fees (0.0465893504185)
+10 feature: other (0.032468398451)
+11 feature: shared_receipt_with_poi (0.027776646776)
+12 feature: total_payments (0.0264091310324)
+13 feature: total_stock_value (0.0198253318306)
+14 feature: Fromfract (0.0197769107643)         <= New Feature
+15 feature: Tofract (0.0134790405578)          <- New Feature
+16 feature: SaltoPay (0.00990093895183)        <- New Feature
+17 feature: ESVtoTSV (0.00314285714286)        <- New Feature
+18 feature: RStoTSV (0.0)                      <- New Feature
+
+
+For my new features, the outcome is not good. The best one, FromFract, is about 10% as powerful on a univariate basis as the top feature, salary. Similarly to before we see that there is a wide distribution of values. Using the same logic, I'll keep only the features that were over 50% as important as the top one, salary. This will mean setting the SKB parameter K to 6 for this featurelist. Unfortunately this will discard the new features from the analysis.
+
+
+Comparison of precision and recall between the two featurelists:
+
+New Featureset:
+0.2525 Recall & 0.26 Precision
+
+Old Featureset:
+0.2075 Recall & 0.22 Precision
+
+
+
+PCA / Featureunion - I decided against trying this approach because I think I can get a sufficiently useful algorithim with the use of SKB alone. If I need to I can always come back and try this. I am unable to articulate a clear explanation of exactly how featureunion combines the two approaches - whether it first applies SKB to reduce the featureset to the top K, then chops up those K features to form components, or if it gets the top K features, preserves them as is, then takes the remainder of the features that didn't make the top K cut and derives components from these, as was my original assumption.
+
+*********Note this approach was dropped in the final algorithim, this section is only here to show how the process evolved******************
+
+*******Some of the specific writeup questions are answered here too*******************
+
+Feature Selection Methodology
+
+    Scaler will be minmax scaler throughout, for each step. This is because there are so many values that are of different orders of magnitude, this will not interact well with some of the algorithims. For the same reason, this will precede feature selection. This will not change.
+    I will begin by trying to work out the best Feature Selection Method for each algorithim I will use. This means that in the initial run, all algorithim parameters will be set to their defaults.
+    I will do this by trying out SKB, PCA and FU for each classifier. This will include using both on their own.
+
+A = SKB only B = PCA only C = SKB then PCA D = PCA then SKB E = FeatureUnion
+1 = Gauss 2 = SVC 3 = DTC 4 = RFC
+Once I ran each combination of the above feature selection methods, I averaged their performance across each algorithim and used this as the basis for deciding which approach to proceed with. As the highest average was for FeatureUnion, I decided that I would stick with this approach for parameter tuning.
+
+PCA_n_components means that composite features are derived from the initial set of features and ranked in order of their ability to explain the variance in the dataset. The top N components are used and the rest discarded.
+SKB_KBest means that the EXISTING features are ranked by their individual prediction score, and the top K are retained. 
+5
+Using feature union means we can get the benefits of SKB -  retain both the good individual features but also the benefits of PCA - derive useful composite features from ones that are no use by themselves.
+Manually dropping the features from the featurelist as a result of the test above was specifically discounted because this is what the parameter settings for n_components and k_best do for us later down the line anyway. It could also be counterproductive to our accuracy as PCA might be able to derive useful elements of these features even if they did not individually prove useful.
+
+
+*DEVELOPED WRITEUP
+I tried Gauss / SVC / Dtree and Random Forest. I tried them all without parameters, and then added parameters and iterated based on the results. (apart from Gaussian NB)
+Gaussian Naive Bayes performed well out of the box, and actually met the report criteria for performance and recall. In fact it actually outperformed my final algorithim.
+SVC initally started with an abysmal level of accuracy, but I got this up to about 0.3.
+DecisionTree was middling initally, however after many false starts I increased the accuracy to 0.415.
+RandomForest was slightly worse than Decision Tree to start. After much tuning I got it up to around 0.4.
+All of the above are F1 scores, ie averages of precision and recall. I thought I'd use DT, however it turned out that DT didn't meet the project requirements because its performance was so heavily weighted towards recall (0.49) and precision was only 0.26.
+So for my final algorithim I went with Random Forest with the following parameters:
+#Rforest
+
+prm_grid4 = dict(combined__pca__n_components=[5],
+               combined__skb__k=[5],
+                clf__criterion=["gini"],
+                clf__max_features=[None],
+                clf__max_depth = [5],
+                clf__class_weight = ["balanced"],
+                clf__min_samples_split = [15],
+                clf__n_estimators = [5]
+6
+                )  
+4. Parameter tuning methodology - please refer to Outputs ipynb.
+The primary aid in getting a good result when tuning appears to be setting up as wide a parameter search as possible for your initial run, leaving it overnight, and then iterating on that. Running on a more restriceted paramter space in 30 second increments means that you are having to guess about what adjustments to make, and it's a very trial and error approach. To clarify, if you do not setup your inital parameter net as widely as possible, you can end up spending lots of time finetuning the wrong parameters for a tiny increase in accuracy. If you have a wide parameter search initially, you can be reasonably confident that your best result is robust, and fine tune each parameter around the setting they were at when they got the best score.
+This was demonstrated by my decision to go back and tune PCA and SKB, despite initially intending to keep these values as a constant for each algorithim. Parameters were chosen by scanning SKLearn and picking ones that sounded relevant from the list, seeing how they affected accuracy, and adding as needed.
+5.
+Validation is the process of checking that your algorithim actually works. This can be done by manually splitting data into the training and test sets, but this leaves the problem of reducing your dataset. As our data is already unbalanced, this can cause performace problems as the classifier is trying to infer information about a very small subsample of the data as it is, without further reducing it. A classic mistake is to train and validate on the same data - this would only measure the bias of your classifer and tell you nothing about it's ability to make predicitions.
+I validated my analysis by using GridsearchCV's built in CrossValidation StratifiedShuffleSplit method, where subsamples of test and training data are taken from the data a specified number of times, and the results averaged across each test. The stratified sampling approach ensures that each "fold" (test) contains roughly equal numbers of each class, in this case meaning that the number of PoIs showing up in each test will be more similar than if it was entirely random, thus helping the algorithim generalise.
+6.
+Analysis of result:
+This is the output showing the performance of my chosen classifier
+Accuracy: 0.80767 Precision: 0.33358 Recall: 0.44350 F1: 0.38077 F2: 0.41608 Total predictions: 15000 True positives: 887 False positives: 1772 False negatives: 1113 True negatives: 11228
+7
+Accuracy - the most intuitive output metric. Defined technically as
+(True positive plus True Negative) / Total Predictions
+or alternatively, out of every guess made by the classifier, what proportion was correct? How good is it at correctly determining if someone is a PoI or not?
+For the reasons given above this is not a useful metric in this context.
+Precision = True positives / (True Positives + False Positives)
+When the classifier identifies someone as a POI, how sure can we be that it is correct?
+If this is high, we can be confident that anyone flagged as a PoI is actually a PoI. If this is low, this means that we are flagging people as PoIs mistakenly.
+In this case my precision score was 0.33 which means we are getting lots of false positives.
+Recall = True Positives / ( True Positives + False Negatives)
+If this is high, we are able to track down a large percentage of the actual PoIs in the data. If this is low then we often miss real PoIs because the algo is overly cautious.
+Recall was 0.44 which means that we were also missing real PoIs.
+It is important to use the full range of validation metrics - if we only looked at accuracy, we would have an unduly high confidence about our ability to make predictions. Recall and Precision are both independent of any imbalances in the dataset, unlike Accuracy.
+*COMPARISON OF FINAL ALGORITHIM BUT WITH DEFAULT FEATURE LIST
+The code for this output is included as the final step of the Jupyter notebook.
+Both precision and recall are lower than in my tweaked featurelist.
+Precision: 0.24391 Recall: 0.36050
+This isn't really fair on the default feature list and it doesn't support my decision to keep my new features in any way, because all of my parameter tuning was based on the dataset with my new features included
+
+***********************************************
+
+
+Final Methodology - Resubmission 28/07/2017
+
+
+PARAMETER TUNING RESULTS SHOWN IN OuTPUTS 2.ipynb
+
+My methodology was to copy the parameter grid from my outputs 2 file into the Testing Notebook until I got a result that met specifications.
+
+Feature selection method - SKB, K_best set to 6, as per the investigation into feature ranks.
+
+I took as my starting point the best performing Gridsearches from my original outputs file.
+I iterated on this by removing featureunion and subbing in SKB k=6.
+
+
+Classifiers attempted:
+
+(please refer to outputs2 for specific parameters tuned for each algorithim)
+
+The decisiontreeclassifer I was unable to raise to over 0.3 f1_score.
+
+Rforest was also stuck around 0.3, but precision was stubborn at 0.27. I eventually got the accuracy up to 0.35 f1_score.
+
+After staying up all night messing with Randomforest, I tried out GaussianNB with the following result. This required no algorithim tuning as there are no params for GaussNB.
+
+with n_splits=10 done in  0.06393147838525692
+Best F1 Score:
+0.360663780664
+Best parameters:
+
+
+Tester Classification Report
+Pipeline(steps=[('MMS', MinMaxScaler(copy=True, feature_range=(0, 1))), ('SKB', SelectKBest(k=6, score_func=<function f_classif at 0x000000000A3B0128>)), ('clf', GaussianNB(priors=None))])
+    Accuracy: 0.84007   Precision: 0.38118  Recall: 0.32000 F1: 0.34792 F2: 0.33061
+    Total predictions: 15000    True positives:  640    False positives: 1039   False negatives: 1360   True negatives: 11961
+
+
+
+And this was the succesful setup:
+
+#create scaler
+MMSs = MMS()
+#Create Transformers
+SKBt = SelectKBest(k=6)
+Pipe = Pipeline([("MMS", MMSs),
+                ("SKB", SKBt),
+                 ("clf", GNBc)])
+prm_grid = dict(
+                ) 
+cv_sss = StratifiedShuffleSplit(labels, 10, test_size=0.3, random_state=42)
+grid = GridSearchCV(Pipe, prm_grid, cv = cv_sss, scoring ="f1")
+
+
+
