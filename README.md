@@ -25,7 +25,9 @@ Feel free to play around with the notebook and explore the effects of different 
 
 The notebook is intended to be self explanatory.
 
-##Old readme
+## Old readme
+
+Remove once refactoring complete
 
 Outputs 2 - Parameter tuning outputs relating to the 28/07 resubmission. Shows the tuning of DT, RF algorithims. Parameter grid/result pairs. Occasional output from tester.py
 
